@@ -121,7 +121,7 @@ foreach ($computer in $computers){
 	}
 	
 	# Get the number of lines in the file
-	$txtLineCount = Get-Content .\$computer-$driveletter.txt | Measure-Object –Line
+	$txtLineCount = Get-Content .\$computer-$driveletter.txt | Measure-Object -Line
 	$txtLineCount = $txtLineCount.Lines
 	
 	# Delete first line of text file
