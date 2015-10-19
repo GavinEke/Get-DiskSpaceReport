@@ -121,7 +121,7 @@ foreach ($computer in $computers){
 	}
 	
 	# Get the number of lines in the file
-	$txtLineCount = Get-Content .\$computer-$driveletter.txt | Measure-Object –Line
+	$txtLineCount = Get-Content .\$computer-$driveletter.txt | Measure-Object -Line
 	$txtLineCount = $txtLineCount.Lines
 	
 	# Delete first line of text file
@@ -131,7 +131,7 @@ foreach ($computer in $computers){
 	}
 	
 	# Get HDD free space and save it to a flat file database
-	$DiskInfo = Get-WMIObject -ComputerName $computer Win32_LogicalDisk -filter "DeviceID='C:'" | Where-Object{$_.DriveType -eq 3} | Select-Object $_.freespace
+	$DiskInfo = Get-WMIObject -ComputerName $computer Win32_LogicalDisk | Where-Object{$_.DeviceID -match $driveletter -and $_.DriveType -eq 3} | Select-Object $_.freespace
 	$DiskInfo = $DiskInfo.FreeSpace/1GB
 	$DiskInfo = [Math]::Round($DiskInfo, 2)
 	Write-Host $DiskInfo
