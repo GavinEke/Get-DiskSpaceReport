@@ -20,32 +20,33 @@ $DBSize = 10 # Enter the number of records you would like to keep
 
 # Test to make sure there is only 1 argument
 if(!($($args.Count) -eq 1)){
-	Write-Host " "
-	Write-Host "The Script requires 1 argument only, please check example usage and try again"
-	Write-Host " "
-	Write-Host "Press any key to exit ..."
+	Write-Host -Object " "
+	Write-Host -Object "The Script requires 1 argument only, please check example usage and try again"
+	Write-Host -Object " "
+	Write-Host -Object "Press any key to exit ..."
 	$x = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
 	Exit
 }
 
 # Test if list exists and print error and exit if it does not
 if(!(Test-Path -Path $args[0])){
-	Write-Host " "
-	Write-Host "Error - The following path was not found: $args"
-	Write-Host " "
-	Write-Host "Press any key to exit ..."
+	Write-Host -Object " "
+	Write-Host -Object "Error - The following path was not found: $args"
+	Write-Host -Object " "
+	Write-Host -Object "Press any key to exit ..."
 	$x = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
 	Exit
 }
 
 # Variables
 $list = $args[0] # This accepts the argument you add to your scheduled task for the list of servers. i.e. list.txt
-$computers = get-content $list #grab the names of the servers/computers to check from the list.txt file.
+$computers = Get-Content -Path $list #grab the names of the servers/computers to check from the list.txt file.
 $ListOfAttachments = @()
 
 # Create-PieChart Function by Sean Duffy (@shogan85)
 # Requires Microsoft Chart Controls for Microsoft .NET Framework 3.5
 # http://www.microsoft.com/en-us/download/details.aspx?id=14422
+# Modified by @GavinEke for Get-DiskSpaceReport use
 Function Create-PieChart(){
 	param([string]$FileName)
 	
@@ -53,21 +54,21 @@ Function Create-PieChart(){
 	[void][Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms.DataVisualization")
 	
 	#Create our chart object 
-	$Chart = New-object System.Windows.Forms.DataVisualization.Charting.Chart 
+	$Chart = New-Object -TypeName System.Windows.Forms.DataVisualization.Charting.Chart 
 	$Chart.Width = 550
 	$Chart.Height = 400 
 	$Chart.Left = 10
 	$Chart.Top = 10
 	
 	#Create a chartarea to draw on and add this to the chart 
-	$ChartArea = New-Object System.Windows.Forms.DataVisualization.Charting.ChartArea
+	$ChartArea = New-Object -TypeName System.Windows.Forms.DataVisualization.Charting.ChartArea
 	$Chart.ChartAreas.Add($ChartArea) 
 	[void]$Chart.Series.Add("Data") 
 	
 	#Add a datapoint for each value specified in the arguments (args) 
 	foreach ($value in $args[0]){
-		Write-Host "Now processing chart value: " + $value
-		$datapoint = new-object System.Windows.Forms.DataVisualization.Charting.DataPoint(0, $value)
+		Write-Host -Object "Now processing chart value: $value"
+		$datapoint = New-Object -TypeName System.Windows.Forms.DataVisualization.Charting.DataPoint -ArgumentList (0, $value)
 		$datapoint.AxisLabel = "Value" + "(" + $value + " GB)"
 		$Chart.Series["Data"].Points.Add($datapoint)
 	}
@@ -79,7 +80,7 @@ Function Create-PieChart(){
 	($Chart.Series["Data"].Points.FindMaxByValue())["Exploded"] = $true
 	
 	#Set the title of the Chart to the current date and time 
-	$Title = new-object System.Windows.Forms.DataVisualization.Charting.Title 
+	$Title = New-Object -TypeName System.Windows.Forms.DataVisualization.Charting.Title 
 	$Chart.Titles.Add($Title) 
 	$Chart.Titles[0].Text = "HDD Space Remaining"
 	
@@ -111,7 +112,6 @@ $HTMLHeader = @"
 </style>
 </head>
 <body>
-
 "@
 
 # Run this for each computer in the list
@@ -121,22 +121,22 @@ foreach ($computer in $computers){
 	}
 	
 	# Get the number of lines in the file
-	$txtLineCount = Get-Content .\$computer-$driveletter.txt | Measure-Object -Line
+	$txtLineCount = Get-Content -Path .\$computer-$driveletter.txt | Measure-Object -Line
 	$txtLineCount = $txtLineCount.Lines
 	
 	# Delete first line of text file
 	if($txtLineCount -gt $DBSize){
-		Get-Content ".\$computer-$driveletter.txt" | Select-Object -Skip 1 | Set-Content ".\temp.txt"
-		Move ".\temp.txt" ".\$computer-$driveletter.txt" -Force
+		Get-Content -Path ".\$computer-$driveletter.txt" | Select-Object -Skip 1 | Set-Content -Path ".\temp.txt"
+		Move-Item -Path ".\temp.txt" -Destination ".\$computer-$driveletter.txt" -Force
 	}
 	
 	# Get HDD free space and save it to a flat file database
-	$DiskInfo = Get-WMIObject -ComputerName $computer Win32_LogicalDisk | Where-Object{$_.DeviceID -match $driveletter -and $_.DriveType -eq 3} | Select-Object $_.freespace
+	$DiskInfo = Get-WMIObject -ComputerName $computer -Class Win32_LogicalDisk | Where-Object {$_.DeviceID -match $driveletter -and $_.DriveType -eq 3} | Select-Object -Property $_.freespace
 	$DiskInfo = $DiskInfo.FreeSpace/1GB
 	$DiskInfo = [Math]::Round($DiskInfo, 2)
-	Write-Host $DiskInfo
-	Add-Content .\$computer-$driveletter.txt "$DiskInfo"
-	$GetHDDSpace = Get-Content .\$computer-$driveletter.txt
+	Write-Host -Object $DiskInfo
+	Add-Content -Path .\$computer-$driveletter.txt -Value "$DiskInfo"
+	$GetHDDSpace = Get-Content -Path .\$computer-$driveletter.txt
 	
 	# Create the chart using our Chart Function
 	Create-PieChart -FileName ((Get-Location).Path + "\$computer-$driveletter") $GetHDDSpace
@@ -167,7 +167,7 @@ $HTMLEnd = @"
 $HTMLMessage = $HTMLHeader + $HTMLMiddle + $HTMLEnd
 
 # Save the report out to a file in the current path
-$HTMLMessage | Out-File ((Get-Location).Path + "\HDDSpaceReport.html")
+$HTMLMessage | Out-File -FilePath ((Get-Location).Path + "\HDDSpaceReport.html")
 
 # Email our report out
 Send-MailMessage -from $fromemail -to $users -subject "$driveletter Drive Line Chart" -Attachments $ListOfAttachments -BodyAsHTML -body $HTMLMessage -priority Normal -smtpServer $server
